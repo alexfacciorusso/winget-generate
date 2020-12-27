@@ -2,17 +2,19 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
+	"gopkg.in/yaml.v2"
 )
 
 type manifestData struct {
-	Name      string
-	Publisher string
-	ID        string
+	Name      string `yaml:"Name"`
+	Publisher string `yaml:"Publisher"`
+	ID        string `yaml:"Id"`
 }
 
 func getIcons(is *survey.IconSet) {
@@ -52,5 +54,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Data: %+v", &manifest)
+	fmt.Printf("Data: %+v\n", &manifest)
+
+	it, err := yaml.Marshal(&manifest)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(string(it))
+	ioutil.WriteFile("manifest.yaml", it, 0)
 }
