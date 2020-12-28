@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/alexfacciorusso/winget-generate/debug"
+	"github.com/alexfacciorusso/winget-generate/suggestion"
 	"github.com/fatih/color"
 	"gopkg.in/yaml.v2"
 )
@@ -22,19 +24,32 @@ func getIcons(is *survey.IconSet) {
 }
 
 func main() {
+	log.SetOutput(debug.DebugWriter)
+
 	var manifest manifestData
+
+	fmt.Println("Hello! We are going to generate a manifest for winget.")
+
+	var githubURL string
+	survey.AskOne(&survey.Input{
+		Message: fmt.Sprintf("If your app is on GitHub, insert its url now, or leave empty otherwise:"),
+	}, &githubURL)
+
+	suggestions := suggestion.GetSuggestionsForRepo(githubURL)
 
 	prompt := []*survey.Question{
 		{
 			Name: "name",
 			Prompt: &survey.Input{
-				Message: fmt.Sprintf("Hello! We are going to generate a manifest for winget. \nWhat's the %s of the app? [E.g. Telegram]", color.HiBlueString("name")),
+				Message: fmt.Sprintf("What's the %s of the app? [E.g. Telegram]", color.HiBlueString("name")),
+				Default: suggestions.Name,
 			},
 		},
 		{
 			Name: "publisher",
 			Prompt: &survey.Input{
 				Message: fmt.Sprintf("Who is the %s of the app? E.g. Telegram Messenger Inc.", "publisher"),
+				Default: suggestions.Publisher,
 			},
 		},
 	}
