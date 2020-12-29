@@ -13,16 +13,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type manifestData struct {
-	Name      string `yaml:"Name"`
-	Publisher string `yaml:"Publisher"`
-	ID        string `yaml:"Id"`
-}
-
-func getIcons(is *survey.IconSet) {
-	is.Question.Text = "[?]"
-}
-
 func main() {
 	log.SetOutput(debug.DebugWriter)
 
@@ -69,6 +59,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	survey.Ask([]*survey.Question{
+		{
+			Name: "license",
+			Prompt: &survey.Select{
+				Message: fmt.Sprintf("Which %s does your project use?", color.HiBlueString("license")),
+				Options: getLicenseOptions(*suggestions),
+				Default: 0,
+			},
+		},
+	}, &manifest, survey.WithIcons(getIcons), survey.WithValidator(survey.Required))
+
 	fmt.Printf("Data: %+v\n", &manifest)
 
 	it, err := yaml.Marshal(&manifest)
@@ -79,4 +80,22 @@ func main() {
 
 	fmt.Println(string(it))
 	ioutil.WriteFile("manifest.yaml", it, 0)
+}
+
+func getIcons(is *survey.IconSet) {
+	is.Question.Text = "[?]"
+}
+
+func getLicenseOptions(suggestions suggestion.RepoSuggestions) []string {
+	debug.PrintJSON("All licenses", suggestions.LicenseList)
+	debug.PrintJSON("Repo license", suggestions.License)
+
+	return suggestions.GetLicenseNames()
+}
+
+type manifestData struct {
+	Name      string `yaml:"Name"`
+	Publisher string `yaml:"Publisher"`
+	ID        string `yaml:"Id"`
+	License   string `yaml:"License"`
 }

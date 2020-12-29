@@ -11,7 +11,7 @@ func PrintJSON(message string, v interface{}) {
 	js, err := json.MarshalIndent(v, "", " ")
 
 	if err != nil {
-		log.Printf("Can't marshal the object to json: $s", err.Error())
+		log.Printf("Can't marshal the object to json: %s", err.Error())
 		return
 	}
 
