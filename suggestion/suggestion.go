@@ -3,7 +3,6 @@ package suggestion
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/alexfacciorusso/winget-generate/debug"
 	"github.com/alexfacciorusso/winget-generate/githuburl"
@@ -26,32 +25,43 @@ func (rs RepoSuggestions) GetLicenseNames() []string {
 
 // GetSuggestionsForRepo gets the license associated with the given GitHub repository.
 func GetSuggestionsForRepo(repoURL string) *RepoSuggestions {
-	valid, user, repoName := githuburl.DestructureRepoURL(repoURL)
 
 	suggestions := &RepoSuggestions{}
-
-	if !valid {
-		log.Println("The inserted repo is not a valid github repo")
-		return suggestions
-	}
-
-	log.Println("Github user: ", user, "and repo", repoName)
 
 	ctx := context.Background()
 	githubClient := github.NewClient(nil)
 
+	fillRepoInfo(ctx, repoURL, githubClient, suggestions)
+	fillLicenses(ctx, githubClient, suggestions)
+
+	return suggestions
+}
+
+func fillRepoInfo(ctx context.Context, repoURL string, githubClient *github.Client, suggestions *RepoSuggestions) {
+	valid, user, repoName := githuburl.DestructureRepoURL(repoURL)
+
+	if !valid {
+		log.Printf("The inserted repo %s is not a valid github repo\n", repoURL)
+		return
+	}
+
+	log.Println("Github user: ", user, "and repo", repoName)
+
 	repo, _, err := githubClient.Repositories.Get(ctx, user, repoName)
 
 	if err != nil {
-		return suggestions
+		return
 	}
 
 	debug.PrintJSON("Repository", repo)
 
-	suggestions.Name = strings.Title(*repo.Name)
-	suggestions.Publisher = strings.Title(*repo.Owner.Login)
+	suggestions.Name = repo.GetName()
+	suggestions.Publisher = repo.GetOwner().GetLogin()
 	suggestions.License = repo.GetLicense()
 
+}
+
+func fillLicenses(ctx context.Context, githubClient *github.Client, suggestions *RepoSuggestions) {
 	githubLicenses, _, _ := githubClient.Licenses.List(ctx)
 
 	if githubLicenses != nil {
@@ -59,8 +69,6 @@ func GetSuggestionsForRepo(repoURL string) *RepoSuggestions {
 	}
 
 	suggestions.LicenseList = githubLicenses
-
-	return suggestions
 }
 
 func getLicenseNames(licenses []*github.License) []string {
@@ -81,6 +89,10 @@ func getLicenseKeys(licenses []*github.License) []string {
 
 func orderLicenses(licenses []*github.License, projectLicense *github.License) []*github.License {
 	debug.PrintJSON("Ordering Licenses", licenses)
+
+	if projectLicense == nil {
+		return licenses
+	}
 
 	licenseMap := make(map[string]*github.License, 0)
 	for _, v := range licenses {
