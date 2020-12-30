@@ -3,10 +3,11 @@ package suggestion
 import (
 	"context"
 	"log"
+	"regexp"
 
 	"github.com/alexfacciorusso/winget-generate/debug"
 	"github.com/alexfacciorusso/winget-generate/githuburl"
-	"github.com/alexfacciorusso/winget-generate/slices"
+	"github.com/fatih/color"
 	"github.com/google/go-github/v33/github"
 )
 
@@ -16,6 +17,7 @@ type RepoSuggestions struct {
 	Publisher   string
 	License     *github.License
 	LicenseList []*github.License
+	Version     string
 }
 
 // GetLicenseNames returns all the possible license names.
@@ -31,23 +33,27 @@ func GetSuggestionsForRepo(repoURL string) *RepoSuggestions {
 	ctx := context.Background()
 	githubClient := github.NewClient(nil)
 
-	fillRepoInfo(ctx, repoURL, githubClient, suggestions)
+	hasRepoInfo, owner, repoName := fillRepoInfo(ctx, repoURL, githubClient, suggestions)
 	fillLicenses(ctx, githubClient, suggestions)
+
+	if hasRepoInfo {
+		fillVersion(ctx, githubClient, owner, repoName, suggestions)
+	}
 
 	return suggestions
 }
 
-func fillRepoInfo(ctx context.Context, repoURL string, githubClient *github.Client, suggestions *RepoSuggestions) {
-	valid, user, repoName := githuburl.DestructureRepoURL(repoURL)
+func fillRepoInfo(ctx context.Context, repoURL string, githubClient *github.Client, suggestions *RepoSuggestions) (hasRepoInfo bool, owner string, repoName string) {
+	hasRepoInfo, owner, repoName = githuburl.DestructureRepoURL(repoURL)
 
-	if !valid {
+	if !hasRepoInfo {
 		log.Printf("The inserted repo %s is not a valid github repo\n", repoURL)
 		return
 	}
 
-	log.Println("Github user: ", user, "and repo", repoName)
+	log.Println("Github user: ", owner, "and repo", repoName)
 
-	repo, _, err := githubClient.Repositories.Get(ctx, user, repoName)
+	repo, _, err := githubClient.Repositories.Get(ctx, owner, repoName)
 
 	if err != nil {
 		return
@@ -59,55 +65,22 @@ func fillRepoInfo(ctx context.Context, repoURL string, githubClient *github.Clie
 	suggestions.Publisher = repo.GetOwner().GetLogin()
 	suggestions.License = repo.GetLicense()
 
+	return
 }
 
-func fillLicenses(ctx context.Context, githubClient *github.Client, suggestions *RepoSuggestions) {
-	githubLicenses, _, _ := githubClient.Licenses.List(ctx)
+func fillVersion(ctx context.Context, githubClient *github.Client, owner string, repoName string, suggestions *RepoSuggestions) {
+	release, _, err := githubClient.Repositories.GetLatestRelease(ctx, owner, repoName)
 
-	if githubLicenses != nil {
-		githubLicenses = orderLicenses(githubLicenses, suggestions.License)
+	if err != nil {
+		log.Println("Error in getting latest release: ", err)
+		return
 	}
 
-	suggestions.LicenseList = githubLicenses
-}
+	versionRegex := regexp.MustCompile(`([0-9]+)\.([0-9]+)\.([0-9]+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+)?`)
+	version := versionRegex.FindString(*release.TagName)
 
-func getLicenseNames(licenses []*github.License) []string {
-	var licenseNames = make([]string, 0, len(licenses))
-	for _, v := range licenses {
-		licenseNames = append(licenseNames, *v.Name)
-	}
-	return licenseNames
-}
+	debug.PrintJSON("Latest release", release)
+	log.Println("Matched version: ", color.CyanString(version))
 
-func getLicenseKeys(licenses []*github.License) []string {
-	var licenseKeys = make([]string, 0, len(licenses))
-	for _, v := range licenses {
-		licenseKeys = append(licenseKeys, *v.Key)
-	}
-	return licenseKeys
-}
-
-func orderLicenses(licenses []*github.License, projectLicense *github.License) []*github.License {
-	debug.PrintJSON("Ordering Licenses", licenses)
-
-	if projectLicense == nil {
-		return licenses
-	}
-
-	licenseMap := make(map[string]*github.License, 0)
-	for _, v := range licenses {
-		licenseMap[*v.Key] = v
-	}
-
-	licenseKeys := getLicenseKeys(licenses)
-	log.Printf("License keys: %v", licenseKeys)
-
-	orderedKeys := slices.ElementToFirst(licenseKeys, *projectLicense.Key)
-	log.Printf("Ordered keys %v", orderedKeys)
-
-	orderedLicenses := make([]*github.License, 0, len(licenses))
-	for _, v := range orderedKeys {
-		orderedLicenses = append(orderedLicenses, licenseMap[v])
-	}
-	return orderedLicenses
+	suggestions.Version = version
 }
