@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.7
+	github.com/alexfacciorusso/ghurlparse v0.1.0
 	github.com/fatih/color v1.10.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/kr/pretty v0.1.0 // indirect

@@ -5,8 +5,8 @@ import (
 	"log"
 	"regexp"
 
+	"github.com/alexfacciorusso/ghurlparse"
 	"github.com/alexfacciorusso/winget-generate/debug"
-	"github.com/alexfacciorusso/winget-generate/githuburl"
 	"github.com/fatih/color"
 	"github.com/google/go-github/v33/github"
 )
@@ -27,7 +27,6 @@ func (rs RepoSuggestions) GetLicenseNames() []string {
 
 // GetSuggestionsForRepo gets the license associated with the given GitHub repository.
 func GetSuggestionsForRepo(repoURL string) *RepoSuggestions {
-
 	suggestions := &RepoSuggestions{}
 
 	ctx := context.Background()
@@ -44,7 +43,7 @@ func GetSuggestionsForRepo(repoURL string) *RepoSuggestions {
 }
 
 func fillRepoInfo(ctx context.Context, repoURL string, githubClient *github.Client, suggestions *RepoSuggestions) (hasRepoInfo bool, owner string, repoName string) {
-	hasRepoInfo, owner, repoName = githuburl.DestructureRepoURL(repoURL)
+	hasRepoInfo, owner, repoName = ghurlparse.DestructureRepoURL(repoURL)
 
 	if !hasRepoInfo {
 		log.Printf("The inserted repo %s is not a valid github repo\n", repoURL)
